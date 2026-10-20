@@ -1,0 +1,78 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "duplicate-media-finder"
+dynamic = ["version"]
+description = "Free duplicate photo and video finder: find and remove duplicate images, similar photos and duplicate videos (resized, WhatsApp, HEIC/JPG, re-encoded copies). Windows, macOS, Linux, offline."
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Vicky Kumar" }]
+requires-python = ">=3.10"
+keywords = [
+    "duplicate photo finder", "duplicate image finder", "duplicate video finder", "find duplicate photos",
+    "remove duplicate images", "similar images", "similar photos", "duplicate files", "deduplication",
+    "photo organizer", "perceptual hash", "phash", "heic", "whatsapp", "google takeout", "clip",
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Environment :: Web Environment",
+    "Intended Audience :: End Users/Desktop",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Multimedia :: Graphics",
+    "Topic :: Multimedia :: Video",
+    "Topic :: System :: Filesystems",
+    "Topic :: Utilities",
+]
+dependencies = [
+    "Pillow>=10",
+    "numpy>=1.22",
+    "pillow-heif>=0.16",
+]
+
+[project.optional-dependencies]
+raw = ["rawpy>=0.19"]
+ai = ["onnxruntime>=1.16"]
+video = ["av>=14"]
+all = ["rawpy>=0.19", "onnxruntime>=1.16", "av>=14"]
+dev = ["pytest>=7", "ruff==0.16.8"]
+
+[project.urls]
+Homepage = "https://github.com/rzvky/Duplicate-Media-Finder"
+Issues = "https://github.com/rzvky/Duplicate-Media-Finder/issues"
+Changelog = "https://github.com/rzvky/Duplicate-Media-Finder/blob/main/CHANGELOG.md"
+
+[project.scripts]
+dupefinder = "dupefinder.cli:main"
+duplicate-media-finder = "dupefinder.cli:main"
+
+[tool.setuptools]
+packages = ["dupefinder"]
+
+[tool.setuptools.dynamic]
+version = { attr = "dupefinder.__version__" }
+
+[tool.setuptools.package-data]
+dupefinder = ["web/*.html", "models/README.md"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+extend-exclude = ["tests/data", "tests/out"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "B", "I"]
+ignore = ["E501", "E731", "E741", "B008", "B905"]

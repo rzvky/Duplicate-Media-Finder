@@ -1,0 +1,504 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Duplicate Media Finder</title>
+<style>
+:root{
+  --table:#E8E9EB; --print:#FFFFFF; --ink:#1D2024; --muted:#5F656C; --line:#D0D3D8; --soft:#F3F4F5;
+  --keep:#1F55D6; --move:#C8352B; --on-move:#FFFFFF; --ok:#1E7A46;
+  --display:"Bahnschrift","Avenir Next Condensed","DIN Alternate","Roboto Condensed","Arial Narrow",system-ui,sans-serif;
+  --body:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root{--table:#17191C;--print:#25282C;--ink:#E8E9EB;--muted:#A1A7AE;--line:#383C42;--soft:#1F2225;
+        --keep:#7A9CFF;--move:#FF6F61;--on-move:#240B07;--ok:#5BC48A;color-scheme:dark}
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--table);color:var(--ink);font:15px/1.5 var(--body);padding-bottom:96px}
+button,input,select{font:inherit;color:inherit}
+a{color:var(--keep)}
+:focus-visible{outline:3px solid var(--keep);outline-offset:2px;border-radius:3px}
+.wrap{max-width:1360px;margin:0 auto;padding:0 24px}
+@media (max-width:640px){.wrap{padding:0 16px}}
+
+/* top bar */
+.top{display:flex;align-items:center;gap:16px;padding-top:14px;padding-bottom:14px;border-bottom:1px solid var(--line)}
+.brand{font:600 17px/1.2 var(--display);letter-spacing:.01em;white-space:nowrap;color:inherit;text-decoration:none}.brand:hover{text-decoration:underline}
+.path{flex:1;min-width:0;color:var(--muted);font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.btn{border:1px solid var(--line);background:var(--print);border-radius:6px;padding:8px 14px;cursor:pointer;line-height:1.2}
+.btn:hover{border-color:var(--muted)}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.btn.primary{background:var(--move);border-color:var(--move);color:var(--on-move);font-weight:600}
+.btn.primary:hover{filter:brightness(1.07)}
+.btn.quiet{background:transparent;border-color:transparent;color:var(--muted);padding:6px 8px}
+.btn.quiet:hover{color:var(--ink);border-color:var(--line)}
+
+/* summary */
+.hero{padding-top:34px;padding-bottom:22px}
+.hero h1{font:600 clamp(34px,5.4vw,60px)/1.02 var(--display);letter-spacing:-.01em;margin:0 0 10px}
+.hero p.lead{margin:0;max-width:62ch;font-size:17px;color:var(--muted)}
+.facts{display:flex;flex-wrap:wrap;gap:8px 28px;margin:22px 0 0;padding:0}
+.facts div{display:flex;flex-direction:column}
+.facts dt{font-size:12.5px;color:var(--muted)}
+.facts dd{margin:0;font:600 20px/1.2 var(--display);font-variant-numeric:tabular-nums}
+.notice{margin:16px 0 0;padding:10px 14px;border-left:3px solid var(--keep);background:var(--soft);max-width:80ch;font-size:14px}
+.notice.warn{border-color:var(--move)}
+details.how{margin-top:18px;max-width:80ch;font-size:14px}
+details.how summary{cursor:pointer;color:var(--keep);font-weight:600}
+details.how ul{margin:8px 0 0;padding-left:20px;color:var(--muted)}
+details.how li{margin:3px 0}
+
+/* toolbar */
+.bar{position:sticky;top:0;z-index:5;background:var(--table);border-bottom:1px solid var(--line);padding:10px 0}
+.bar .wrap{display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px}
+.tabs{display:flex;flex-wrap:wrap;gap:4px}
+.tab{border:1px solid transparent;background:none;border-radius:20px;padding:6px 12px;cursor:pointer;color:var(--muted)}
+.tab b{font-weight:600;color:var(--ink);margin-left:4px;font-variant-numeric:tabular-nums}
+.tab[aria-pressed="true"]{background:var(--print);border-color:var(--line);color:var(--ink)}
+.tools{display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px;margin-left:auto;font-size:14px}
+.tools label{display:flex;align-items:center;gap:6px;cursor:pointer}
+.tools select{border:1px solid var(--line);background:var(--print);border-radius:6px;padding:5px 8px}
+@media (max-width:640px){.bar{position:static}.tools{margin-left:0}}
+
+/* groups */
+.group{padding:26px 0 8px;border-bottom:1px dashed var(--line)}
+.ghead{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 14px;margin-bottom:14px}
+.gnum{font:600 22px/1 var(--display);font-variant-numeric:tabular-nums}
+.gkind{font-weight:600}
+.gsub{color:var(--muted);font-size:14px}
+.gacts{margin-left:auto;display:flex;gap:4px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:18px}
+
+/* a print on the light table */
+.print{background:var(--print);padding:8px 8px 12px;border-radius:2px;border:1px solid var(--line);position:relative;display:flex;flex-direction:column}
+.frame{all:unset;cursor:zoom-in;position:relative;display:block;aspect-ratio:4/3;background:var(--soft);overflow:visible}
+.frame img{width:100%;height:100%;object-fit:contain;display:block;transition:opacity .15s}
+.frame .ph{position:absolute;inset:0;display:grid;place-items:center;color:var(--muted);font-size:13px}
+.vbadge{position:absolute;right:6px;bottom:6px;z-index:3;background:rgba(12,13,15,.78);color:#fff;font:600 12px/1 var(--body);padding:5px 7px 5px 6px;border-radius:4px;font-variant-numeric:tabular-nums;display:flex;gap:5px;align-items:center;pointer-events:none}
+.vbadge svg{width:9px;height:10px;fill:#fff}
+.mark{position:absolute;inset:-6px;width:calc(100% + 12px);height:calc(100% + 12px);pointer-events:none;overflow:visible}
+.mark path,.mark ellipse{fill:none;stroke-linecap:round;stroke-linejoin:round}
+.keep .mark ellipse{stroke:var(--keep);stroke-width:3.2}
+.move .mark path{stroke:var(--move);stroke-width:4;stroke-dasharray:400;stroke-dashoffset:0;animation:draw .22s ease-out}
+.move .frame img{opacity:.55}
+@keyframes draw{from{stroke-dashoffset:400}to{stroke-dashoffset:0}}
+@media (prefers-reduced-motion:reduce){.move .mark path{animation:none}.frame img{transition:none}}
+.moved .frame img{filter:grayscale(1);opacity:.35}
+.moved .bin{position:absolute;left:8px;right:8px;bottom:8px;text-align:center;background:var(--print);border:1px solid var(--line);font-size:13px;padding:4px;border-radius:3px}
+.cap{display:flex;flex-direction:column;gap:2px;padding-top:10px;min-width:0;flex:1}
+.row1{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px 8px;margin-bottom:4px}
+.role{font-size:12.5px;font-weight:600;padding:2px 8px;border-radius:12px;border:1px solid var(--line);white-space:nowrap}
+.role.keep{color:var(--keep);border-color:var(--keep)}
+.role.exact,.role.lower{color:var(--move);border-color:color-mix(in srgb,var(--move) 55%,transparent)}
+.pick{display:flex;align-items:center;gap:6px;font-size:13.5px;cursor:pointer;white-space:nowrap}
+.pick input{width:17px;height:17px;accent-color:var(--move);cursor:pointer;margin:0}
+.name{margin:0;font-weight:600;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.where{margin:0;font-size:12.5px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.meta{margin:2px 0 0;font-size:12.5px;display:flex;flex-wrap:wrap;gap:0 10px;font-variant-numeric:tabular-nums}
+.when{margin:0;font-size:12.5px;color:var(--muted)}
+.why{margin:6px 0 0;font-size:13px;line-height:1.4}
+.acts{display:flex;flex-wrap:wrap;gap:2px;margin-top:auto;padding-top:8px}
+.acts .btn{font-size:12.5px}
+
+.more{display:block;margin:28px auto;}
+.empty{padding:60px 0;max-width:60ch}
+.empty h2{font:600 28px/1.2 var(--display);margin:0 0 8px}
+table.errs{border-collapse:collapse;width:100%;margin-top:20px;font-size:14px}
+table.errs th,table.errs td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+table.errs th{font-weight:600;color:var(--muted)}
+table.errs td:first-child{word-break:break-all}
+
+/* footer */
+.foot{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--print);border-top:1px solid var(--line)}
+.foot .wrap{display:flex;align-items:center;gap:12px;padding-top:12px;padding-bottom:12px;flex-wrap:wrap}
+.foot .count{flex:1;min-width:200px;font-variant-numeric:tabular-nums}
+.foot .count strong{font:600 18px var(--display)}
+
+/* dialogs */
+.veil{position:fixed;inset:0;background:rgba(10,12,14,.55);z-index:20;display:none;align-items:center;justify-content:center;padding:16px}
+.veil.on{display:flex}
+.dialog{background:var(--print);border-radius:8px;max-width:520px;width:100%;padding:22px 22px 18px;border:1px solid var(--line)}
+.dialog h2{font:600 22px/1.25 var(--display);margin:0 0 8px}
+.dialog p{margin:0 0 10px;color:var(--muted)}
+.dialog .btns{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
+.dialog code{word-break:break-all;color:var(--ink)}
+.light{position:fixed;inset:0;background:rgba(8,9,11,.92);z-index:30;display:none;flex-direction:column}
+.light.on{display:flex}
+.light .stage{flex:1;display:flex;align-items:center;justify-content:center;min-height:0;padding:16px}
+.light img,.light video{max-width:100%;max-height:100%;object-fit:contain}
+.light .stage{flex-direction:column;gap:10px}
+.light .vnote{color:#C9CDD2;font-size:13.5px;max-width:70ch;text-align:center;margin:0}
+.light .info{color:#E8E9EB;padding:12px 20px 18px;display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center;font-size:14px}
+.light .info .n{font-weight:600}
+.light .info .m{color:#B5BAC0}
+.light .nav{position:absolute;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.12);border:0;color:#fff;width:46px;height:64px;border-radius:6px;cursor:pointer;font-size:26px}
+.light .nav.p{left:12px}.light .nav.nx{right:12px}
+.light .x{position:absolute;top:12px;right:12px;background:rgba(255,255,255,.12);border:0;color:#fff;border-radius:6px;padding:8px 12px;cursor:pointer}
+.light .pick{color:#fff}
+.toast{position:fixed;left:50%;bottom:88px;transform:translateX(-50%);background:var(--ink);color:var(--print);padding:10px 16px;border-radius:6px;z-index:40;max-width:90vw;display:none;font-size:14px}
+.toast.on{display:block}
+.done{padding:80px 0;max-width:62ch}
+.done h1{font:600 40px/1.1 var(--display);margin:0 0 12px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+</style>
+</head>
+<body>
+<div id="app"><div class="wrap"><p style="padding:40px 0">Loading results…</p></div></div>
+
+<div class="veil" id="confirm" role="dialog" aria-modal="true" aria-labelledby="cTitle">
+  <div class="dialog">
+    <h2 id="cTitle"></h2>
+    <p id="cBody"></p>
+    <div class="btns"><button class="btn" data-c="no">Cancel</button><button class="btn primary" data-c="yes" id="cYes">Move files</button></div>
+  </div>
+</div>
+
+<div class="light" id="light" role="dialog" aria-modal="true" aria-label="Preview">
+  <button class="x" data-l="close">Close (Esc)</button>
+  <div class="stage"><img id="lImg" alt=""><video id="lVid" controls playsinline preload="metadata" hidden></video><p class="vnote" id="lNote" hidden></p></div>
+  <button class="nav p" data-l="prev" aria-label="Previous file">‹</button>
+  <button class="nav nx" data-l="next" aria-label="Next file">›</button>
+  <div class="info" id="lInfo"></div>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+"use strict";
+const BOOT = /*__BOOT__*/null || {live:false, token:"", data:null};
+const LIVE = !!BOOT.live;
+const PAGE = 30;
+const ROLE = {keep:"Keep", exact:"Exact copy", lower:"Smaller or converted copy", similar:"Similar shot", rawpair:"RAW + JPEG pair"};
+const KIND = {exact:"Exact copies", copies:"Same photo, different quality", similar:"Similar shots"};
+const KIND_V = {exact:"Exact video copies", copies:"Same video, different file"};
+const PLAYABLE = new Set(["MP4","M4V","MOV","WEBM","MKV","3GP","3G2","OGV"]);
+const isVid = m => m.media === "video";
+const S = {data:null, tab:"all", sort:"savings", shown:PAGE, alsoSimilar:false, byFid:new Map(), byGroup:new Map(), dirty:{}, saveT:null};
+
+const $ = (s, el=document) => el.querySelector(s);
+function esc(s){return String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
+function size(n){ if(n<1024) return n+" B"; const u=["KB","MB","GB","TB"]; let i=-1; do{n/=1024;i++;}while(n>=1024&&i<u.length-1); return (n>=100||i===0?n.toFixed(0):n.toFixed(1))+" "+u[i]; }
+function num(n){ return Number(n||0).toLocaleString(); }
+function when(dt){ if(!dt) return ""; const d=new Date(dt.replace(" ","T")+"Z"); if(isNaN(d)) return dt;
+  return d.toLocaleDateString(undefined,{day:"numeric",month:"short",year:"numeric",timeZone:"UTC"})+", "+d.toLocaleTimeString(undefined,{hour:"2-digit",minute:"2-digit",second:"2-digit",timeZone:"UTC"}); }
+function thumb(m){ return LIVE ? "/thumb/"+m.fid+".jpg?t="+encodeURIComponent(BOOT.token) : "thumbs/"+m.fid+"-"+(m.sha12||"x")+".jpg"; }
+function full(m){ return LIVE ? "/full/"+m.fid+"?t="+encodeURIComponent(BOOT.token) : thumb(m); }
+function encPath(p){ return String(p).split(/[\\/]/).map(encodeURIComponent).join("/"); }
+function vsrc(m){
+  if(LIVE) return "/video/"+m.fid+"?t="+encodeURIComponent(BOOT.token);
+  if(m.status==="moved" && m.bin_rel) return encPath(m.bin_rel);
+  const out = String(S.data.out_dir||""), root = String(S.data.root||"");
+  return (out && root && out.replace(/[\\/]+$/,"") === (root.replace(/[\\/]+$/,"") + sep() + "_DupeFinder")) ? "../" + encPath(m.rel) : "";
+}
+function strip(m){ return LIVE ? "/strip/"+m.fid+".jpg?t="+encodeURIComponent(BOOT.token) : thumb(m); }
+function dur(s){ if(s==null) return ""; s=Math.round(s); const h=Math.floor(s/3600), mm=Math.floor(s%3600/60), ss=s%60; return h? `${h}:${String(mm).padStart(2,"0")}:${String(ss).padStart(2,"0")}` : `${mm}:${String(ss).padStart(2,"0")}`; }
+function sep(){ return (S.data.root||"").includes("\\") ? "\\" : "/"; }
+function binPath(){ return S.data.bin_dir || ((S.data.out_dir || (S.data.root + sep() + "_DupeFinder")) + sep() + "Review_Bin"); }
+
+async function api(path, body){
+  const r = await fetch(path, {method: body===undefined?"GET":"POST", headers:{"X-Token":BOOT.token,"Content-Type":"application/json"}, body: body===undefined?undefined:JSON.stringify(body)});
+  const j = await r.json().catch(()=>({error:"Unexpected reply"}));
+  if(!r.ok || j.error) throw new Error(j.error || ("Error "+r.status));
+  return j;
+}
+
+function index(){
+  S.byFid.clear(); S.byGroup.clear();
+  for(const g of S.data.groups){ S.byGroup.set(g.id, g); for(const m of g.files){ S.byFid.set(m.fid, {m, g}); } }
+}
+const present = g => g.files.filter(m => m.status === "present");
+function selected(){ let n=0,b=0; for(const g of S.data.groups) for(const m of g.files) if(m.status==="present" && m.selected){n++;b+=m.size;} return {n,b}; }
+function defaultPick(m){ return m.role==="exact" || m.role==="lower" || (S.alsoSimilar && m.role==="similar"); }
+function touched(m){ S.dirty[m.fid]=m.selected; if(!LIVE) return; clearTimeout(S.saveT); S.saveT=setTimeout(()=>{ const d=S.dirty; S.dirty={}; api("/api/select",{selected:d}).catch(()=>{}); }, 600); }
+
+function toast(msg, ms=4200){ const t=$("#toast"); t.textContent=msg; t.classList.add("on"); clearTimeout(toast.t); toast.t=setTimeout(()=>t.classList.remove("on"), ms); }
+
+function counts(){
+  const c={all:0, exact:0, copies:0, similar:0, videos:0};
+  for(const g of S.data.groups){ c.all++; c[g.kind]=(c[g.kind]||0)+1; if(g.media==="video") c.videos++; }
+  c.errors = (S.data.errors||[]).length; return c;
+}
+function visibleGroups(){
+  let gs = S.data.groups.filter(g => S.tab==="all" || (S.tab==="videos" ? g.media==="video" : g.kind===S.tab));
+  const first = g => g.files[0];
+  if(S.sort==="folder") gs = gs.slice().sort((a,b)=> first(a).rel.localeCompare(first(b).rel));
+  else if(S.sort==="date") gs = gs.slice().sort((a,b)=> String(first(b).dt||"").localeCompare(String(first(a).dt||"")));
+  else if(S.sort==="size") gs = gs.slice().sort((a,b)=> b.files.length - a.files.length || b.savings - a.savings);
+  return gs;
+}
+
+function hero(){
+  const d=S.data, st=d.stats, sel=selected();
+  const ai = d.ai_used ? "On" : "Off";
+  const vids = st.videos_found||0;
+  let h1, lead;
+  if(!d.groups.length){
+    h1 = "No duplicates found";
+    lead = vids ? `All ${num(st.photos_read)} photos and ${num(st.videos_read||0)} videos in this folder look different from each other.`
+                : `All ${num(st.photos_read)} photos in this folder look different from each other.`;
+  } else {
+    h1 = sel.n ? `Free up ${size(sel.b)}` : `${num(d.groups.length)} groups to review`;
+    lead = sel.n ? `by moving ${num(sel.n)} ticked ${sel.n===1?"copy":"copies"} to the Review Bin. Nothing is deleted, and you can undo.`
+                 : `Nothing is ticked right now. Tick the photos you want to move, or use the suggestions.`;
+  }
+  const notices = (d.notices||[]).map(n=>`<p class="notice">${esc(n)}</p>`).join("");
+  const aiNote = (d.ai_used || !st.photos_found) ? "" : `<p class="notice warn">${esc(d.ai_message||"AI matching was off for this scan.")} Exact and resized copies are still found; repeat shots are found only by time and picture pattern.</p>`;
+  return `<section class="hero wrap" aria-labelledby="h1">
+    <h1 id="h1">${esc(h1)}</h1><p class="lead">${esc(lead)}</p>
+    <dl class="facts">
+      <div><dt>Photos checked</dt><dd>${num(st.photos_read)}</dd></div>
+      ${vids?`<div><dt>Videos checked</dt><dd>${num(st.videos_read||0)}</dd></div>`:""}
+      <div><dt>Duplicate groups</dt><dd>${num(d.groups.length)}</dd></div>
+      <div><dt>Files in groups</dt><dd>${num(st.files_in_groups)}</dd></div>
+      <div><dt>Could not open</dt><dd>${num(st.unreadable)}</dd></div>
+      <div><dt>AI matching</dt><dd>${ai}</dd></div>
+      <div><dt>Scan time</dt><dd>${st.seconds<90? Math.round(st.seconds)+" s" : Math.round(st.seconds/60)+" min"}</dd></div>
+    </dl>
+    ${aiNote}${notices}
+    <details class="how"><summary>How this works</summary><ul>
+      <li>Ticked files are moved to <code>${esc(binPath())}</code>, keeping their folder structure. Nothing is ever deleted by this tool.</li>
+      <li>Blue circle: the suggested keeper (highest quality, sharpest). Red cross: ticked to move.</li>
+      <li>Exact and lower-quality copies are ticked for you. Similar shots are not; tick them yourself or use the switch below.</li>
+      <li>Live Photo and motion photo clips (a short .MOV or .MP4 with the same name), edit files (.AAE) and sidecar files move together with their photo. A video takes its own .THM, .SRT and sidecar files.</li>
+      <li>Videos are grouped when they are the same video saved again: same length, same pictures at every moment checked, and the same sound. Name and format do not matter. Click a video to play it.</li>
+      <li>When you are happy, delete the Review_Bin folder yourself. Changed your mind? Use Undo.</li>
+    </ul></details>
+  </section>`;
+}
+
+function toolbar(){
+  const c=counts();
+  const tab=(k,label,n)=>`<button class="tab" data-tab="${k}" aria-pressed="${S.tab===k}">${label}<b>${num(n)}</b></button>`;
+  return `<nav class="bar" aria-label="Filters"><div class="wrap">
+    <div class="tabs">${tab("all","All groups",c.all)}${tab("exact","Exact copies",c.exact)}${tab("copies","Different quality",c.copies)}${tab("similar","Similar shots",c.similar)}${c.videos?tab("videos","Videos",c.videos):""}${c.errors?tab("errors","Could not open",c.errors):""}</div>
+    <div class="tools">
+      <label><input type="checkbox" id="alsoSim" ${S.alsoSimilar?"checked":""} ${LIVE?"":"disabled"}> Also tick similar shots</label>
+      <label>Sort <select id="sort">
+        <option value="savings" ${S.sort==="savings"?"selected":""}>Most space first</option>
+        <option value="size" ${S.sort==="size"?"selected":""}>Biggest groups first</option>
+        <option value="date" ${S.sort==="date"?"selected":""}>Newest photos first</option>
+        <option value="folder" ${S.sort==="folder"?"selected":""}>By folder</option>
+      </select></label>
+    </div></div></nav>`;
+}
+
+function markSvg(){
+  return `<svg class="mark" viewBox="0 0 100 75" preserveAspectRatio="none" aria-hidden="true">
+    <ellipse cx="50" cy="37.5" rx="50" ry="38" transform="rotate(-1.2 50 37.5)"/>
+    <path d="M8 6 L92 70 M91 5 L9 69"/></svg>`;
+}
+
+function tile(m, g){
+  const cls = ["print"];
+  if(m.status==="moved") cls.push("moved");
+  else if(m.role==="keep" && !m.selected) cls.push("keep");
+  if(m.status==="present" && m.selected) cls.push("move");
+  const folder = m.folder==="." ? "Main folder" : m.folder;
+  const pick = m.status==="present"
+    ? `<label class="pick"><input type="checkbox" data-act="toggle" data-fid="${m.fid}" ${m.selected?"checked":""} ${LIVE?"":"disabled"}> Move to bin</label>`
+    : `<span class="where">${m.status==="moved"?"Moved":"Missing"}</span>`;
+  return `<article class="${cls.join(" ")}" data-fid="${m.fid}">
+    <button class="frame" data-act="open" data-fid="${m.fid}" aria-label="Preview ${esc(m.name)}">
+      <img loading="lazy" src="${thumb(m)}" alt="" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'ph',textContent:'No preview'}))">
+      ${isVid(m)?`<span class="vbadge"><svg viewBox="0 0 9 10" aria-hidden="true"><path d="M0 0 L9 5 L0 10Z"/></svg>${esc(dur(m.dur))}</span>`:""}${markSvg()}${m.status==="moved"?'<span class="bin">In Review Bin</span>':""}
+    </button>
+    <div class="cap">
+      <div class="row1"><span class="role ${m.role}">${ROLE[m.role]||m.role}</span>${pick}</div>
+      <p class="name" title="${esc(m.rel)}">${esc(m.name)}</p>
+      <p class="where" title="${esc(folder)}">${esc(folder)}</p>
+      <p class="meta"><span>${m.w}×${m.h}</span><span>${size(m.size)}</span><span>${esc(m.fmt)}${isVid(m)&&m.vcodec&&m.vcodec!==m.fmt?" "+esc(m.vcodec):""}</span>${isVid(m)?`<span>${esc(dur(m.dur))}</span>${m.audio?"":"<span>no sound</span>"}`:""}${m.damaged?'<span>damaged</span>':""}</p>
+      ${m.dt?`<p class="when">${isVid(m)?"Recorded":"Taken"} ${esc(when(m.dt))}</p>`:`<p class="when">No date in file</p>`}
+      <p class="why">${esc(m.reason)}</p>
+      <div class="acts">${LIVE && m.status==="present"?`<button class="btn quiet" data-act="only" data-fid="${m.fid}">Keep only this</button>`:""}${LIVE?`<button class="btn quiet" data-act="reveal" data-fid="${m.fid}">Show in folder</button>`:""}</div>
+    </div></article>`;
+}
+
+function groupHtml(g){
+  const n = g.files.length;
+  const sub = [`${n} files`];
+  if(g.match!=null && g.kind==="similar") sub.push(g.ai?`AI match ${g.match}% or higher`:`pattern match ${g.match}% or higher`);
+  if(g.media==="video"){ const d0=g.files[0].dur; if(d0!=null) sub.push(`length ${dur(d0)}`); if(g.evidence&&g.evidence.length) sub.push(g.evidence.join("; ")); }
+  const live = LIVE && present(g).length>1;
+  return `<section class="group" id="g${g.id}" data-gid="${g.id}" aria-label="Group ${g.id}">
+    <div class="ghead"><span class="gnum">Group ${g.id}</span><span class="gkind">${(g.media==="video"?KIND_V[g.kind]:KIND[g.kind])||g.kind}</span><span class="gsub">${esc(sub.join(", "))}</span>
+      ${live?`<span class="gacts"><button class="btn quiet" data-act="keepall" data-gid="${g.id}">Keep all</button><button class="btn quiet" data-act="reset" data-gid="${g.id}">Use suggestion</button></span>`:""}</div>
+    <div class="grid">${g.files.map(m=>tile(m,g)).join("")}</div></section>`;
+}
+
+function errorsHtml(){
+  const rows=(S.data.errors||[]).map(e=>`<tr><td>${esc(e.rel)}</td><td>${esc(e.error)}</td></tr>`).join("");
+  return `<div class="wrap"><table class="errs"><thead><tr><th>File</th><th>Why it could not be opened</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+
+function listHtml(){
+  if(S.tab==="errors") return errorsHtml();
+  const gs = visibleGroups();
+  if(!gs.length) return `<div class="wrap empty"><h2>${S.data.groups.length?"Nothing in this view":"Your folder is already tidy"}</h2><p>${S.data.groups.length?"Pick another tab above.":"No duplicates found. To look for more distant matches, scan again with the loose sensitivity setting."}</p></div>`;
+  const part = gs.slice(0, S.shown).map(groupHtml).join("");
+  const more = gs.length > S.shown ? `<button class="btn more" id="more">Show ${Math.min(PAGE, gs.length-S.shown)} more groups (${num(gs.length-S.shown)} left)</button>` : "";
+  return `<div class="wrap" id="list">${part}${more}</div>`;
+}
+
+function footHtml(){
+  const sel=selected(); const canUndo = LIVE && (S.data.batches||[]).length>0;
+  if(!LIVE) return `<footer class="foot"><div class="wrap"><span class="count">Read-only report. To move files, run Duplicate Media Finder again and open this folder.</span></div></footer>`;
+  return `<footer class="foot"><div class="wrap">
+    <span class="count"><strong>${num(sel.n)}</strong> ${sel.n===1?"file":"files"} ticked, ${size(sel.b)}</span>
+    <button class="btn" id="undo" ${canUndo?"":"disabled"}>Undo last move</button>
+    <button class="btn primary" id="go" ${sel.n?"":"disabled"}>Move ${num(sel.n)} ${sel.n===1?"file":"files"} to Review Bin</button>
+  </div></footer>`;
+}
+
+function render(){
+  const top = `<header class="wrap top"><a class="brand" href="https://github.com/rzvky/Duplicate-Media-Finder" target="_blank" rel="noopener" title="Project page on GitHub">Duplicate Media Finder</a><span class="path" title="${esc(S.data.root)}">${esc(S.data.root)}</span>${LIVE?'<button class="btn" id="finish">Finish</button>':""}</header>`;
+  $("#app").innerHTML = top + hero() + toolbar() + listHtml() + footHtml();
+}
+function refreshGroup(g){
+  const el = document.getElementById("g"+g.id);
+  if(el){ const tmp=document.createElement("div"); tmp.innerHTML=groupHtml(g); el.replaceWith(tmp.firstElementChild); }
+  refreshChrome();
+}
+function refreshChrome(){
+  const h=$(".hero"); if(h){ const t=document.createElement("div"); t.innerHTML=hero(); const open=$("details.how",h)?.open; h.replaceWith(t.firstElementChild); if(open) $("details.how").open=true; }
+  const f=$(".foot"); if(f){ const t=document.createElement("div"); t.innerHTML=footHtml(); f.replaceWith(t.firstElementChild); }
+}
+
+function setPick(m, g, val){
+  if(m.status!=="present") return false;
+  if(val){
+    const others = present(g).filter(x=>x!==m && !x.selected);
+    if(!others.length){ toast("Keep at least one file from each group. Untick another file first."); return false; }
+  }
+  m.selected = val; touched(m); return true;
+}
+
+document.addEventListener("click", async (e) => {
+  const t = e.target.closest("[data-act],[data-tab],#more,#go,#undo,#finish");
+  if(!t) return;
+  if(t.dataset.tab){ S.tab=t.dataset.tab; S.shown=PAGE; render(); return; }
+  if(t.id==="more"){ S.shown+=PAGE; const y=scrollY; render(); scrollTo(0,y); return; }
+  if(t.id==="go") return confirmMove();
+  if(t.id==="undo") return doUndo();
+  if(t.id==="finish") return finish();
+  const act=t.dataset.act;
+  if(act==="toggle") return;  // handled by change
+  if(act==="open"){ const {m,g}=S.byFid.get(t.dataset.fid); return openLight(g, g.files.indexOf(m)); }
+  if(act==="reveal"){ api("/api/reveal",{fid:t.dataset.fid}).catch(err=>toast(err.message)); return; }
+  if(act==="only"){ const {m,g}=S.byFid.get(t.dataset.fid); for(const x of present(g)){ x.selected = x!==m; touched(x);} refreshGroup(g); return; }
+  if(act==="keepall"){ const g=S.byGroup.get(+t.dataset.gid); for(const x of present(g)){ x.selected=false; touched(x);} refreshGroup(g); return; }
+  if(act==="reset"){ const g=S.byGroup.get(+t.dataset.gid); for(const x of present(g)){ x.selected=defaultPick(x); touched(x);} refreshGroup(g); return; }
+});
+document.addEventListener("change", (e) => {
+  const t=e.target;
+  if(t.dataset && t.dataset.act==="toggle"){
+    const {m,g}=S.byFid.get(t.dataset.fid);
+    if(!setPick(m,g,t.checked)) t.checked = m.selected;
+    refreshGroup(g);
+    const again=document.querySelector(`#g${g.id} input[data-fid="${m.fid}"]`); if(again) again.focus();
+    return;
+  }
+  if(t.id==="sort"){ S.sort=t.value; S.shown=PAGE; render(); return; }
+  if(t.id==="alsoSim"){
+    S.alsoSimilar=t.checked; let blocked=0;
+    for(const g of S.data.groups){ for(const m of present(g)){ if(m.role==="similar"){ if(t.checked){ if(!setPick(m,g,true)) blocked++; } else { m.selected=false; touched(m);} } } }
+    const y=scrollY; render(); scrollTo(0,y);
+    toast(t.checked?"Similar shots ticked. The best shot in each group stays.":"Similar shots unticked.");
+  }
+});
+
+/* confirm + move */
+function ask(title, body, yes){
+  return new Promise(res=>{
+    const v=$("#confirm"); $("#cTitle").textContent=title; $("#cBody").innerHTML=body; $("#cYes").textContent=yes;
+    v.classList.add("on"); $("#cYes").focus();
+    const done=(ok)=>{ v.classList.remove("on"); v.onclick=null; document.removeEventListener("keydown",key); res(ok); };
+    const key=(e)=>{ if(e.key==="Escape") done(false); };
+    document.addEventListener("keydown",key);
+    v.onclick=(e)=>{ const c=e.target.dataset.c; if(c) done(c==="yes"); else if(e.target===v) done(false); };
+  });
+}
+async function confirmMove(){
+  const sel=selected(); if(!sel.n) return;
+  const ok = await ask(`Move ${num(sel.n)} ${sel.n===1?"file":"files"} (${size(sel.b)})?`,
+    `They go to <code>${esc(binPath())}</code> with their folders kept. Nothing is deleted, and Undo puts them back.`, "Move files");
+  if(!ok) return;
+  const fids=[]; for(const g of S.data.groups) for(const m of g.files) if(m.status==="present" && m.selected) fids.push(m.fid);
+  const go=$("#go"); if(go){ go.disabled=true; go.textContent="Moving…"; }
+  try{
+    const r = await api("/api/move",{fids});
+    await reload();
+    let msg = `Moved ${num(r.moved.length)} ${r.moved.length===1?"file":"files"} (${size(r.moved_bytes||0)}) to the Review Bin.`;
+    if(r.companions) msg += ` ${r.companions} linked file${r.companions===1?"":"s"} (Live Photo video, edit or sidecar file) moved with them.`;
+    if(r.skipped && r.skipped.length) msg += ` ${r.skipped.length} skipped: ${r.skipped[0].why}.`;
+    if(r.blocked_groups && r.blocked_groups.length) msg += ` ${r.blocked_groups.length} group(s) left alone because every photo was ticked.`;
+    toast(msg, 7000);
+  }catch(err){ toast("Move failed: "+err.message, 8000); refreshChrome(); }
+}
+async function doUndo(){
+  try{ const r=await api("/api/undo",{}); await reload();
+    toast(r.restored.length?`Put back ${num(r.restored.length)} ${r.restored.length===1?"file":"files"}.`+(r.failed.length?` ${r.failed.length} could not be put back: ${r.failed[0].why}.`:""):"Nothing to undo.", 6000);
+  }catch(err){ toast("Undo failed: "+err.message, 8000); }
+}
+async function finish(){
+  try{ await api("/api/quit",{}); }catch(e){}
+  const moved=[...S.byFid.values()].filter(x=>x.m.status==="moved").length;
+  $("#app").innerHTML = `<div class="wrap done"><h1>All done</h1>
+    <p>${moved?`${num(moved)} files are waiting in <code>${esc(binPath())}</code>. Look through them, then delete that folder when you are sure.`:"No files were moved."}</p>
+    <p>A report of this scan is saved as <code>report.html</code> and <code>duplicates.csv</code> in the _DupeFinder folder. You can close this tab.</p></div>`;
+  $("#toast").classList.remove("on");
+}
+
+/* lightbox */
+const L={g:null,i:0};
+function openLight(g,i){ L.g=g; L.i=i; showLight(); $("#light").classList.add("on"); $("#light .x").focus(); }
+let vidTimer=0;
+function stopVideo(){ clearTimeout(vidTimer); const v=$("#lVid"); v.onloadedmetadata=v.onloadeddata=v.onerror=null; v.pause(); v.removeAttribute("src"); v.removeAttribute("poster"); v.load(); v.hidden=true; }
+function showStrip(m, note){
+  const img=$("#lImg"); img.hidden=false; img.src=strip(m); img.alt=m.name;
+  const n=$("#lNote"); n.hidden=false; n.textContent=note;
+}
+function showLight(){
+  const m=L.g.files[L.i];
+  stopVideo(); $("#lNote").hidden=true; $("#lImg").hidden=false;
+  if(isVid(m)){
+    const src = PLAYABLE.has(String(m.fmt||"").toUpperCase()) ? vsrc(m) : "";
+    if(src){
+      const v=$("#lVid"); $("#lImg").hidden=true; $("#lImg").removeAttribute("src");
+      v.hidden=false; v.poster=thumb(m);
+      const fail=()=>{ if(L.g.files[L.i]!==m) return; stopVideo(); showStrip(m, LIVE ? "This video cannot play in the browser. These pictures are taken across the whole video. Use Show in folder to play it." : "Preview picture. This video cannot play here; open the file from its folder."); };
+      v.onerror=fail;
+      // sound but no picture (a video format the browser cannot show): show the pictures instead
+      v.onloadedmetadata=()=>{ if(!v.videoWidth) fail(); };
+      v.onloadeddata=()=>{ clearTimeout(vidTimer); if(!v.videoWidth) fail(); };
+      vidTimer=setTimeout(()=>{ if(v.readyState<1) fail(); }, 10000);
+      v.src=src;
+    } else {
+      showStrip(m, LIVE ? "This format cannot play in the browser. These pictures are taken across the whole video. Use Show in folder to play it."
+                        : "Preview picture. To play this video, open the file from its folder.");
+    }
+  } else { $("#lImg").src=full(m); $("#lImg").alt=m.name; }
+  const pick = LIVE && m.status==="present" ? `<label class="pick"><input type="checkbox" id="lPick" ${m.selected?"checked":""}> Move to bin</label>` : "";
+  $("#lInfo").innerHTML = `<span class="n">${esc(m.name)}</span><span class="m">${ROLE[m.role]}</span><span class="m">${m.w}×${m.h}, ${size(m.size)}, ${esc(m.fmt)}${isVid(m)?`${m.vcodec&&m.vcodec!==m.fmt?" "+esc(m.vcodec):""}, ${esc(dur(m.dur))}${m.audio?"":", no sound"}`:""}</span><span class="m">${esc(m.reason)}</span><span class="m">${L.i+1} of ${L.g.files.length}</span>${pick}`;
+  const p=$("#lPick"); if(p) p.onchange=()=>{ if(!setPick(m,L.g,p.checked)) p.checked=m.selected; refreshGroup(L.g); };
+}
+function closeLight(){ $("#light").classList.remove("on"); stopVideo(); $("#lImg").removeAttribute("src"); const el=document.querySelector(`[data-act="open"][data-fid="${L.g.files[L.i].fid}"]`); if(el) el.focus(); }
+$("#light").addEventListener("click",(e)=>{ const a=e.target.dataset.l; if(a==="close"||e.target.classList.contains("stage")) closeLight(); else if(a==="prev"){L.i=(L.i-1+L.g.files.length)%L.g.files.length;showLight();} else if(a==="next"){L.i=(L.i+1)%L.g.files.length;showLight();} });
+document.addEventListener("keydown",(e)=>{ if(!$("#light").classList.contains("on")) return;
+  if(e.target && e.target.tagName==="VIDEO" && (e.key==="ArrowLeft"||e.key==="ArrowRight")) return;
+  if(e.key==="Escape") closeLight(); else if(e.key==="ArrowLeft"){L.i=(L.i-1+L.g.files.length)%L.g.files.length;showLight();} else if(e.key==="ArrowRight"){L.i=(L.i+1)%L.g.files.length;showLight();} });
+
+async function reload(){
+  const y=scrollY;
+  S.data = LIVE ? await api("/api/results") : BOOT.data;
+  index(); render(); scrollTo(0,y);
+}
+(async ()=>{
+  try{ await reload(); }
+  catch(err){ $("#app").innerHTML=`<div class="wrap empty"><h2>Could not load results</h2><p>${esc(err.message)}. Close this tab and run the tool again.</p></div>`; }
+})();
+</script>
+</body>
+</html>

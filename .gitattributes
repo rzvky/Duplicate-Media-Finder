@@ -1,0 +1,16 @@
+# Keep line endings correct on every computer, whatever git settings people use.
+* text=auto
+
+# Windows start file must have Windows line endings, or cmd.exe can misread it
+*.bat text eol=crlf
+
+# Mac and Linux start files must have Unix line endings, or bash fails
+*.sh text eol=lf
+*.command text eol=lf
+*.py text eol=lf
+
+# Binary files
+*.onnx binary
+*.bin binary
+*.jpg binary
+*.png binary

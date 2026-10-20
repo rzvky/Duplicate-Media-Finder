@@ -1,0 +1,13 @@
+# Duplicate Media Finder: Python packages
+# The START_HERE scripts install these for you. Manual install:
+#   python -m pip install -r requirements.txt
+
+# Required
+Pillow>=10
+numpy>=1.22
+pillow-heif>=0.16      # iPhone HEIC / HEIF photos
+
+# Optional (the tool still runs without them)
+rawpy>=0.19            # camera RAW: DNG, CR2, CR3, NEF, ARW, RAF, ORF, RW2 and more
+onnxruntime>=1.16      # AI matching for repeat shots
+av>=14                 # videos: MP4, MOV, MKV, AVI, WMV, 3GP, WEBM and more (PyAV, includes FFmpeg)

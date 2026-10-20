@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+build/
+dist/
+
+# AI model: too large for the repository, published on the Releases page instead
+dupefinder/models/*.onnx
+dupefinder/models/*.joining
+*.bin
+
+# Scan results (created inside the scanned folder)
+_DupeFinder/
+DuplicateMediaFinder_results/
+
+# Test datasets and scratch output
+tests/data/
+tests/out/
+*.tmp
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
